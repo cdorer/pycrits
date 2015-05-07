@@ -355,12 +355,36 @@ class pycrits(object):
             # If someone does something crazy like filepath='/tmp/'
             # then basename() returns ''. Use MD5 in that case.
             if not filename:
-                filename = hashlib.md5(file_obj.read()).hexdigest()
+                filename = self.get_file_md5sum(file_obj)
                 file_obj.seek(0)
 
         return {'filedata': (filename, file_obj)}
 
+    def get_file_md5sum(self, fileobj=None, filepath=None):
+        """
+        Returns the md5sum hash of the file.  If filepath is given, it
+        overrides the fileobject and uses that path.
+        """
+        hashstring = None
+
+        if filepath:
+            file_obj = open(filepath, 'rb')
+
+        if hasattr(file_obj, 'read'):
+            hashstring = hashlib.md5(file_obj.read()).hexdigest()
+
+        return hashstring
+
     # Add objects to CRITs.
+
+    def get_source_list(self):
+        """
+        Returns the list of sources the user has permissions for using.
+        """
+        f = self._single_fetch('sources/')
+        l_sources = f['sources']
+        return l_sources
+
     def add_actor(self, name, source, params={}):
         params['name'] = name
         return self._post(self._ACTORS, params)
@@ -445,6 +469,13 @@ class pycrits(object):
         # Set filename so it is honored for metadata uploads too.
         params['upload_type'] = type_
         params['filename'] = filename
+        l_sources = self.get_source_list()
+
+        try:
+            l_sources.index(source)
+        except ValueError:
+            raise ValueError("'{}' is not a valid source.".format(source))
+
         params['source'] = source
         return self._post(self._SAMPLES, params, files=files)
 
